@@ -1,4 +1,5 @@
-from model import CRNN
+from models.cnn_lstm import CRNN
+from models.cnn_transformer import ImageCaptioningModel
 from dataset import Flickr
 import torch
 import torchvision.transforms as transforms
@@ -12,22 +13,33 @@ transform = transforms.Compose([
     ])
 
 dataset = Flickr()
-states = torch.load("crnn_and_vocab.pth_old.tar")
+states = torch.load("crnn_and_vocab.pth.tar")
 vocabulary = states["vocabulary"]
 state_dict = states["model_state_dict"]
 
-model = CRNN(embed_size=256, hidden_size=256, vocab_size=len(vocabulary), num_layers=2)
+#print(vocabulary)
+#model = CRNN(embed_size=256, hidden_size=256, vocab_size=len(vocabulary), num_layers=2)
+model = ImageCaptioningModel(vocab_size=len(vocabulary), 
+        embedding_dim=512, 
+        hidden_dim=512, 
+        num_layers=2, 
+        num_heads=4, 
+        dropout=0.2
+    )
 model.load_state_dict(state_dict)
 model.eval()
  
-for idx in range(1102,1302,10): # 1000,1100,10
+for idx in range(0,3000,100): # 1000,1100,10
     image = dataset[idx][0]
     sample = transform(dataset[idx][0]).unsqueeze(0)
-    caption = model.caption_image(sample,vocabulary)
+    caption = model.sample(sample,vocabulary,device=torch.device("cpu"))
+    
     caption = " ".join(caption)
     plt.figure(figsize=(10,10))
     plt.imshow(image)
     plt.title(caption)
     plt.axis(False)
     plt.grid(False)
+    
     plt.show()
+    break

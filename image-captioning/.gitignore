@@ -2,3 +2,4 @@ flickr8k
 __pycache__
 *.pth
 *.tar
+wandb
