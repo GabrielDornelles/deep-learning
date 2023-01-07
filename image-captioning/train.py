@@ -27,13 +27,13 @@ def main():
     vocab_size = len(dataset.vocabulary)
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=8,
+        batch_size=16,
         num_workers=4,
         shuffle=True,
         collate_fn=CustomCollate(pad_idx=0) # our mapped <PAD> token is idx 0
     )
     
-    epoches = 100
+    epoches = 150
     device = torch.device("cuda")
     lr = 3e-4
 
@@ -41,8 +41,8 @@ def main():
     model = ImageCaptioningModel(vocab_size=vocab_size, 
         embedding_dim=320,#512, 
         hidden_dim=320, 
-        num_layers=2, 
-        num_heads=4, 
+        num_layers=4, 
+        num_heads=5, 
         dropout=0.2
     )
     model.to(device)
@@ -50,10 +50,12 @@ def main():
     #model = torch.compile(model)
     criterion = nn.CrossEntropyLoss(ignore_index=dataset.vocabulary.stoi["<PAD>"])
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, factor=0.8, patience=5, verbose=True
+        )
 
-
-    #experiment = wandb.init(project='image-captioning-cnn-transformer', resume='allow', anonymous='must')
-    #experiment.config.update(dict(epochs=epoches, batch_size=8, learning_rate=lr, amp=True))
+    experiment = wandb.init(project='image-captioning-cnn-transformer', resume='allow', anonymous='must')
+    experiment.config.update(dict(epochs=epoches, batch_size=16, learning_rate=lr, amp=True))
     global_step = 0
     try:
         for epoch in range(epoches):
@@ -82,17 +84,19 @@ def main():
                 # print(outputs.shape)
                 # print(captions.shape)
                 
-                loss = criterion(outputs, captions)
+                loss = criterion(outputs, captions) * 20
                 losses.append(loss.item())
                 optimizer.zero_grad()
                 loss.backward()
+                #torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
                 optimizer.step()
                 global_step += 1
-                # experiment.log({
-                #     'loss': loss.item(),
-                #     'global_step': global_step,
-                #     'epoch': epoch
-                # })
+                experiment.log({
+                    'loss': loss.item(),
+                    'global_step': global_step,
+                    'epoch': epoch
+                })
+                
             
             model.eval()
             idxs = list(range(0,3000,300))
@@ -100,19 +104,21 @@ def main():
                 sample_image = sample_dataset[idx][0]
                 image = transform(sample_image)
                 image = image[None, ...].cuda()
-                caption = model.sample(image,dataset.vocabulary)
+                caption = model.sample_2(image,dataset.vocabulary,device=torch.device("cuda"))
                 
                 caption = " ".join(caption)
 
-                # experiment.log({ 
-                #     'Sample': wandb.Image(sample_image, caption=caption),
+                experiment.log({ 
+                    'Sample': wandb.Image(sample_image, caption=caption),
                     
-                # })
+                })
             epoch_loss = sum(losses)/len(losses)
             print(f"Epoch loss: {epoch_loss}")
-            # experiment.log({
-            #     "epoch_loss": epoch_loss
-            #  })
+            experiment.log({
+                "epoch_loss": epoch_loss
+            })
+            scheduler.step(epoch_loss)
+
         
         states = {
             "model_state_dict": model.state_dict(),
