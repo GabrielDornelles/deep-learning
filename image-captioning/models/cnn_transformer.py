@@ -168,7 +168,7 @@ class ImageCaptioningModel(nn.Module):
         
         return [vocabulary.itos[int(idx)] for idx in caption]
     
-    def sample_2(self, image, vocabulary, max_length=1, device=torch.device("cpu")):
+    def sample_2(self, image, vocabulary, max_length=50, device=torch.device("cpu")):
         # Initialize the caption with the start token
         caption = [1]
         image_features = self.cnn_encoder(image)
@@ -177,10 +177,13 @@ class ImageCaptioningModel(nn.Module):
             image_features.shape[0], 
             image_features.shape[1]
         )
+        next_token = [1]
         with torch.no_grad():
             for step in range(max_length):
-                #print(f"{caption=}")
+            
                 output_tokens_tensor = torch.tensor([caption]).to(device)
+                print(output_tokens_tensor)
+                #output_tokens_tensor = torch.tensor([next_token]).to(device)
                 embedded_captions = self.embedding(output_tokens_tensor)
                 embedded_captions = embedded_captions.transpose(0,1)
 
@@ -193,16 +196,15 @@ class ImageCaptioningModel(nn.Module):
                 
                 whole_sentence = [vocabulary.itos[int(idx)] for idx in logits]
                 whole_sentence = "<SOS>" + " ".join(whole_sentence)
-                print(whole_sentence)
-                print()
+                # print(whole_sentence)
+                # print()
+                
                 next_token = int(logits[step])
                 #print(next_token)
                 #print(logits.shape)
-                #distribution = F.softmax(logits, dim=1)
                 
-                # next_token = torch.argmax(distribution).item()
                 # print(next_token)
-                print(vocabulary.itos[int(next_token)])
+                #print(vocabulary.itos[int(next_token)])
                 if vocabulary.itos[int(next_token)] == "<EOS>":
                     break
                 caption.append(next_token)

@@ -36,6 +36,7 @@ for idx in range(0,3000,100): # 1000,1100,10
     caption = model.sample_2(sample,vocabulary,device=torch.device("cpu"))
     
     caption = " ".join(caption)
+    print(caption)
     plt.figure(figsize=(10,10))
     plt.imshow(image)
     plt.title(caption)
