@@ -10,6 +10,9 @@ from rich.progress import track
 import time
 from datetime import datetime 
 import wandb
+import sys
+from rich.console import Console
+console = Console()
 
 
 def main():
@@ -36,8 +39,8 @@ def main():
 
     #model = CRNN(embed_size=256, hidden_size=256, vocab_size=vocab_size, num_layers=1)
     model = ImageCaptioningModel(vocab_size=vocab_size, 
-        embedding_dim=512, 
-        hidden_dim=512, 
+        embedding_dim=320,#512, 
+        hidden_dim=320, 
         num_layers=2, 
         num_heads=4, 
         dropout=0.2
@@ -49,8 +52,8 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
 
-    experiment = wandb.init(project='image-captioning-cnn-transformer', resume='allow', anonymous='must')
-    experiment.config.update(dict(epochs=epoches, batch_size=8, learning_rate=lr, amp=True))
+    #experiment = wandb.init(project='image-captioning-cnn-transformer', resume='allow', anonymous='must')
+    #experiment.config.update(dict(epochs=epoches, batch_size=8, learning_rate=lr, amp=True))
     global_step = 0
     try:
         for epoch in range(epoches):
@@ -71,9 +74,13 @@ def main():
                 # captions is [padded_len, batch_size] we transform in -> [padded_len * batch_size]
                 # which is pretty much just stack the whole batch of captions into one dimension
 
+                
+
+                #outputs = outputs.view(-1, outputs.shape[-1])
                 outputs = outputs.reshape(-1, outputs.shape[2])
                 captions = captions.reshape(-1)
-
+                # print(outputs.shape)
+                # print(captions.shape)
                 
                 loss = criterion(outputs, captions)
                 losses.append(loss.item())
@@ -81,11 +88,11 @@ def main():
                 loss.backward()
                 optimizer.step()
                 global_step += 1
-                experiment.log({
-                    'loss': loss.item(),
-                    'global_step': global_step,
-                    'epoch': epoch
-                })
+                # experiment.log({
+                #     'loss': loss.item(),
+                #     'global_step': global_step,
+                #     'epoch': epoch
+                # })
             
             model.eval()
             idxs = list(range(0,3000,300))
@@ -97,15 +104,15 @@ def main():
                 
                 caption = " ".join(caption)
 
-                experiment.log({ 
-                    'Sample': wandb.Image(sample_image, caption=caption),
+                # experiment.log({ 
+                #     'Sample': wandb.Image(sample_image, caption=caption),
                     
-                })
+                # })
             epoch_loss = sum(losses)/len(losses)
             print(f"Epoch loss: {epoch_loss}")
-            experiment.log({
-                "epoch_loss": epoch_loss
-             })
+            # experiment.log({
+            #     "epoch_loss": epoch_loss
+            #  })
         
         states = {
             "model_state_dict": model.state_dict(),
@@ -119,6 +126,11 @@ def main():
             "vocabulary": dataset.vocabulary,
         }
         torch.save(states, "crnn_and_vocab_interrupted.pth.tar")
+
+    except Exception:
+        console.print_exception()
+        sys.exit()
+
     
 
 if __name__ == "__main__":

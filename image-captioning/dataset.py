@@ -98,6 +98,7 @@ class Flickr(Dataset):
         self.transform = transform
         self.vocabulary = Vocabulary(freq_threshold=5)
         self.vocabulary.build_vocabulary(self.anns.tolist())
+        self.fixed_length = 100
     
     def __len__(self):
         return len(self.images)
@@ -117,6 +118,8 @@ class Flickr(Dataset):
         tokenized_caption = [self.vocabulary.stoi["<SOS>"]] # Start the sentence
         tokenized_caption += self.vocabulary.numericalize(anns) # add the sentence
         tokenized_caption.append(self.vocabulary.stoi["<EOS>"]) # End the sentence
+        tokenized_caption += [0] * int(self.fixed_length - len(tokenized_caption)) # pad to fixed length with token 0 (<PAD>)
         tokenized_caption = torch.tensor(tokenized_caption)
+        #print(len(tokenized_caption))
         return image, tokenized_caption
         

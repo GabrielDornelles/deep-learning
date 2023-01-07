@@ -53,7 +53,7 @@ class Encoder(nn.Module):
 class ImageCaptioningModel(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, num_layers, num_heads, dropout):
         super().__init__()
-        
+        self.device = torch.device("cuda")
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -102,24 +102,36 @@ class ImageCaptioningModel(nn.Module):
       
         # Convert word indices to word embeddings
         # TODO: mask the captions with look ahead mask
+
         embedded_captions = self.embedding(captions)
         
 
-        thought_vectors = image_features
+        #thought_vectors = image_features
 
         # Pass thought vectors and embedded captions through decoder
-        print(f"{thought_vectors.shape=}")
-        print(f"{embedded_captions.shape=}")
-        decoder_output = self.decoder(tgt=thought_vectors, memory=embedded_captions)
-        print(f"{decoder_output.shape=}")
+        #print(f"{thought_vectors.shape=}")
+        #print(f"{embedded_captions.shape=}")
+        mem_mask = self._generate_square_subsequent_mask(embedded_captions.size(0))
+        #mem_mask = mem_mask.unsqueeze(1).unsqueeze(2)
+        #output = output.masked_fill(mem_mask == 0, -float('inf'))
+        decoder_output = self.decoder(tgt=image_features, memory=embedded_captions, memory_mask=mem_mask)
+        #print(f"{decoder_output.shape=}")
         # Map decoder output to word embeddings
         logits = self.output_linear(decoder_output)
-        print(f"{logits.shape=}")
+        #print(f"{logits.shape=}")
         # TODO: logits shape currently are torch.Size([100, 8, 2994]).
         # Understand how to interpret this 100 tokens (this is the final caption)
         # probably just pad caption to be fixed at 100 tokens?
+        # Is this called auto regressive decoding?
         return logits
     
+
+    
+    def _generate_square_subsequent_mask(self, size):
+        mask = (torch.triu(torch.ones(size, size + 1)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask.to(self.device)
+
     def sample(self, image, vocabulary, max_length=20, device=torch.device("cuda")):
         caption = []
         next_word = torch.tensor([1], dtype=torch.int).to(device) # First token is 1: <SOS> Start of sentence
@@ -156,15 +168,43 @@ class ImageCaptioningModel(nn.Module):
         
         return [vocabulary.itos[int(idx)] for idx in caption]
     
-    def sample_2(self, image, vocabulary, max_length=50):
+    def sample_2(self, image, vocabulary, max_length=50, device=torch.device("cpu")):
         # Initialize the caption with the start token
         caption = [1]
-        image_features = self.cnn_encoder(image).unsqueeze(0)
-        states = None
+        image_features = self.cnn_encoder(image)
+        image_features = image_features.reshape(
+            image_features.shape[-1] * image_features.shape[-2], 
+            image_features.shape[0], 
+            image_features.shape[1]
+        )
+        with torch.no_grad():
+            for step in range(max_length):
+                print(f"{caption=}")
+                output_tokens_tensor = torch.tensor([caption]).to(device)
+                embedded_captions = self.embedding(output_tokens_tensor)
+                embedded_captions = embedded_captions.transpose(0,1)
 
-        for _ in range(max_length):
+                print(f"{image_features.shape=}")
+                print(f"{embedded_captions.shape=}")
+                
+                decoder_output = self.decoder(image_features, embedded_captions)
+                logits = self.output_linear(decoder_output).squeeze(1)
+                logits = self.sample_from_logits(logits)
+                next_token = int(logits[step])
+                print(next_token)
+                #print(logits.shape)
+                #distribution = F.softmax(logits, dim=1)
+                
+                # next_token = torch.argmax(distribution).item()
+                # print(next_token)
+                
+                if vocabulary.itos[int(next_token)] == "<EOS>":
+                    break
+                caption.append(next_token)
+            return [vocabulary.itos[int(idx)] for idx in caption]
+        # for _ in range(max_length):
 
-            output = self.decoder()
+        #     output = self.decoder()
 
         
 
