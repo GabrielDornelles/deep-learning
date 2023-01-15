@@ -51,9 +51,9 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
 
 # actual function to translate input sentence into target language
 def translate(model: torch.nn.Module, 
-            src_sentence: str,
-            text_transform,
-            vocab_transform):
+    src_sentence: str, 
+    text_transform: dict,
+    vocab_transform: dict):
     model.eval()
     src = text_transform[SRC_LANGUAGE](src_sentence).view(-1, 1)
     num_tokens = src.shape[0]

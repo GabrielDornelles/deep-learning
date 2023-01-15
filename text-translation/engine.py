@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 from utils import create_mask
+from rich.progress import track
+
 
 PAD_IDX = 1
 loss_fn = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
@@ -10,7 +12,8 @@ def train_epoch(model, optimizer, train_dataloader, device):
     model.train()
     losses = 0
     
-    for src, tgt in train_dataloader:
+    #with torch.cuda.amp.autocast():
+    for src, tgt in track(train_dataloader, description="Training..."):
         src = src.to(device)
         tgt = tgt.to(device)
 
@@ -37,7 +40,7 @@ def evaluate(model, val_dataloader, device):
     losses = 0
     
     with torch.no_grad():
-        for src, tgt in val_dataloader:
+        for src, tgt in track(val_dataloader, description="Validating..."):
             src = src.to(device)
             tgt = tgt.to(device)
 

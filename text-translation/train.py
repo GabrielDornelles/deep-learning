@@ -9,7 +9,7 @@ from timeit import default_timer as timer
 
 
 BATCH_SIZE = 64
-EPOCHES = 20
+EPOCHES = 30
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -21,6 +21,7 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_iter, batch_size=BATCH_SIZE, collate_fn=collate_fn)
 
     model = init_transformer()
+    #model.load_state_dict(torch.load("./en_to_pt_transformer-18.pth"))
     model.to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
     train_start_time = timer()

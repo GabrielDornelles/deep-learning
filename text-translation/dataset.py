@@ -8,9 +8,9 @@ class TatoebaDataset:
         self.dataset = load_dataset("tatoeba", lang1="en", lang2="pt")["train"]
         #size = int(len(self.dataset) * 0.85)
         if split == "train":
-            self.dataset = self.dataset[:30000] #[:200000]
+            self.dataset = self.dataset[:60000] #[:200000]
         if split == "val":
-            self.dataset = self.dataset[30000:31000] # [200000:210000]
+            self.dataset = self.dataset[60000:62000] # [200000:210000]
 
     def __len__(self) -> int:
         return len(self.dataset["translation"])
